@@ -7,13 +7,7 @@ export const metadata: Metadata = {
     'A fun way to connect celebrities through their shared moments and meetings. Discover connections across entertainment, politics, sports, and more!',
   keywords: ['celebrities', 'connections', 'photos', 'social network', 'entertainment', 'politics', 'sports'],
   icons: {
-    icon: [
-      { url: '/favicon.ico' },
-      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
+    icon: '/favicon.svg',
   },
   openGraph: {
     title: 'CelebLink - Connect Any Two Celebrities',

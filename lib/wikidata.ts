@@ -282,18 +282,6 @@ function isLikelyPersonImage(url: string, name: string): boolean {
   const urlLower = url.toLowerCase();
   const nameLower = name.toLowerCase();
 
-  // Extract meaningful name parts (first name and last name)
-  const nameParts = nameLower
-    .split(' ')
-    .filter(part => part.length > 2)
-    .map(part => part.replace(/[^a-z]/g, '')); // Remove non-letter chars
-
-  // Check if URL contains actual name parts (must match closely)
-  const hasExactNameMatch = nameParts.some(part => {
-    // For exact matching, the URL should contain the full name part
-    return urlLower.includes(part);
-  });
-
   // List of image filenames that are definitely NOT person photos
   const invalidPatterns = [
     'logo', 'icon', 'flag', 'map', 'chart', 'diagram',
@@ -302,7 +290,6 @@ function isLikelyPersonImage(url: string, name: string): boolean {
     'animal', 'elephant', 'lion', 'tiger',
     'screenshot', 'interface', 'ui', 'software',
     '.svg', // SVG files are usually logos/icons
-    'portrait_of_president', // Official presidential portraits
   ];
 
   const hasInvalidPattern = invalidPatterns.some(pattern =>
@@ -321,6 +308,7 @@ function isLikelyPersonImage(url: string, name: string): boolean {
     'donald_trump', 'donald%20trump', 'donaldtrump',
     'van_gogh', 'van%20gogh', 'vangogh',
     'barack_obama', 'barack%20obama', 'barackobama',
+    'robert_downey', 'robert%20downey', 'robertdowney',
   ];
 
   const hasWrongPerson = wrongPersonPatterns.some(pattern => {
@@ -336,9 +324,23 @@ function isLikelyPersonImage(url: string, name: string): boolean {
     return false;
   }
 
-  // If no exact name match found, be more suspicious
-  if (!hasExactNameMatch) {
-    console.log(`    ✗ Rejected: URL doesn't contain person's name`);
+  // For Wikimedia Commons URLs, be lenient - trust the source
+  // Many valid photos have generic filenames like "G20_Summit_2015.jpg"
+  if (urlLower.includes('wikimedia.org') || urlLower.includes('wikipedia.org')) {
+    console.log(`    ✓ Accepted: Wikimedia Commons URL (trusted source)`);
+    return true;
+  }
+
+  // For non-Wikimedia URLs, check if the name is in the URL
+  const nameParts = nameLower
+    .split(' ')
+    .filter(part => part.length > 2)
+    .map(part => part.replace(/[^a-z]/g, ''));
+
+  const hasNameMatch = nameParts.some(part => urlLower.includes(part));
+
+  if (!hasNameMatch) {
+    console.log(`    ✗ Rejected: Non-Wikimedia URL doesn't contain person's name`);
     return false;
   }
 
