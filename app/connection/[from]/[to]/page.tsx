@@ -39,11 +39,12 @@ export default function SharedConnectionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fromSlug = params.from as string;
-  const toSlug = params.to as string;
+  const fromSlug = params?.from as string;
+  const toSlug = params?.to as string;
 
   // Convert slug to readable name (e.g., "tom-cruise" -> "Tom Cruise")
-  const slugToName = (slug: string) => {
+  const slugToName = (slug: string | undefined) => {
+    if (!slug) return '';
     return decodeURIComponent(slug)
       .split('-')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -54,6 +55,9 @@ export default function SharedConnectionPage() {
   const toName = slugToName(toSlug);
 
   useEffect(() => {
+    // Don't run if params aren't ready
+    if (!fromSlug || !toSlug) return;
+
     const searchAndConnect = async () => {
       try {
         // Search for both celebrities
@@ -91,7 +95,7 @@ export default function SharedConnectionPage() {
     };
 
     searchAndConnect();
-  }, [fromName, toName]);
+  }, [fromSlug, toSlug, fromName, toName]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5">
