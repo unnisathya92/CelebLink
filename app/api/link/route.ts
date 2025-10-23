@@ -171,14 +171,31 @@ CRITICAL PRIORITY - PHOTO AVAILABILITY:
 - ONLY suggest connections where BOTH people were PHOTOGRAPHED TOGETHER in the SAME FRAME
 - DO NOT use connections where someone "visited" something or "attended" an event alone
 - BOTH people must be PHYSICALLY PRESENT together in a documented photograph
-- Prioritize widely-documented public events with extensive photo coverage:
-  * Major award ceremonies (Oscars, Grammys, Nobel Prize, etc.)
-  * G20/G7/UN summits with official photography
-  * High-profile film premieres and festivals (where both posed together)
-  * Major sports events (Olympics, World Cup)
-  * Well-documented charity galas and fundraisers
-  * Press conferences with multiple people
-  * TV shows, interviews, and talk shows (where both appeared together)
+
+CONNECTION TYPES (in order of preference):
+1. **Movies/TV Shows** - Co-stars in the same film or TV show (MOST COMMON - check this FIRST!)
+   * Shared scenes, promotional events, premieres together
+   * Cast photos, behind-the-scenes photos
+
+2. **Personal Relationships**
+   * Married couples, dating/romantic partners
+   * Family relationships (siblings, parent-child, cousins, etc.)
+   * Close friendships with documented photos
+
+3. **Professional Collaborations**
+   * Director-actor pairs
+   * Producer-actor pairs
+   * Music collaborations (duets, featured artists)
+   * Same sports team or competitors
+
+4. **Public Events**
+   * Major award ceremonies (Oscars, Grammys, Nobel Prize, etc.)
+   * Film festivals and premieres (both appearing together)
+   * Talk shows and interviews (both guests simultaneously)
+   * Charity galas and fundraisers
+   * G20/G7/UN summits with official photography
+   * Weddings, funerals, memorial services (where both attended)
+   * Major sports events (Olympics, World Cup)
 - AVOID:
   * "Person X visited museum Y" - NOT a connection
   * "Both attended event Z" - Only valid if photographed TOGETHER

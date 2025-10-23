@@ -1,4 +1,5 @@
 import EvidenceCard from './EvidenceCard';
+import ShareButton from './ShareButton';
 
 interface Person {
   qid: string;
@@ -122,6 +123,15 @@ export default function PathViewer({ nodes, edges, onPlay }: PathViewerProps) {
           );
         })}
       </div>
+
+      {/* Share Button */}
+      {nodes.length >= 2 && (
+        <ShareButton
+          fromName={nodes[0].name}
+          toName={nodes[nodes.length - 1].name}
+          pathLength={edges.length}
+        />
+      )}
     </div>
   );
 }
