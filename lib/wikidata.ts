@@ -326,74 +326,45 @@ function isLikelyPersonImage(url: string, name: string, isMeetingPhoto: boolean 
   const urlLower = url.toLowerCase();
   const nameLower = name.toLowerCase();
 
-  // List of image filenames that are definitely NOT person photos
-  // Note: Be careful with generic words that might appear in valid photo URLs
-  const invalidPatterns = [
-    'logo', 'icon', 'flag', 'map', 'chart', 'diagram',
-    'safari', 'chrome', 'firefox', 'browser',
-    'waterfall', 'mountain', 'landscape', 'building',
-    'screenshot', 'interface', 'ui', 'software',
-    '.svg', // SVG files are usually logos/icons
-  ];
-
-  const hasInvalidPattern = invalidPatterns.some(pattern =>
-    urlLower.includes(pattern)
-  );
-
-  if (hasInvalidPattern) {
-    console.log(`    ✗ Rejected: URL contains invalid pattern: ${invalidPatterns.find(p => urlLower.includes(p))}`);
-    return false;
-  }
-
-  // Extract name parts for matching
-  const nameParts = nameLower
-    .split(' ')
-    .filter(part => part.length > 2)
-    .map(part => part.replace(/[^a-z]/g, '')); // Remove non-letter chars
-
-  // For meeting photos (multiple people), be more lenient
+  // For meeting photos (multiple people), be very lenient
   if (isMeetingPhoto) {
     console.log(`    ✓ Accepted: Meeting photo (lenient validation)`);
     return true;
   }
 
-  // For individual person photos, require name match in URL
-  // Check if URL contains person's actual name parts
-  const hasNameMatch = nameParts.some(part => {
-    // URL should contain at least one significant name part
-    return urlLower.includes(part);
-  });
+  // For Wikimedia/Wikipedia URLs, be very lenient (trusted source)
+  // Only reject if it's obviously not a person photo
+  if (urlLower.includes('wikimedia.org') || urlLower.includes('wikipedia.org')) {
+    // Only reject truly invalid types
+    const obviouslyInvalidPatterns = [
+      'logo.', 'icon.', '.svg',
+      'flag_of_', 'coat_of_arms',
+      'map_of_', 'diagram_',
+    ];
 
-  if (!hasNameMatch) {
-    console.log(`    ✗ Rejected: URL doesn't contain person's name (${nameParts.join(', ')})`);
-    return false;
+    const hasObviouslyInvalid = obviouslyInvalidPatterns.some(pattern =>
+      urlLower.includes(pattern)
+    );
+
+    if (hasObviouslyInvalid) {
+      console.log(`    ✗ Rejected: Wikimedia URL contains obviously invalid pattern`);
+      return false;
+    }
+
+    console.log(`    ✓ Accepted: Wikimedia/Wikipedia URL (trusted source)`);
+    return true;
   }
 
-  // Additional check: URL shouldn't contain OTHER well-known person names
-  // Build a list of common celebrity/politician names to watch for
-  const wrongPersonPatterns = [
-    'michelle_obama', 'michelle%20obama', 'michelleobama',
-    'barack_obama', 'barack%20obama', 'barackobama',
-    'tom_hanks', 'tom%20hanks', 'tomhanks',
-    'donald_trump', 'donald%20trump', 'donaldtrump',
-    'van_gogh', 'van%20gogh', 'vangogh',
-    'robert_downey', 'robert%20downey', 'robertdowney',
-    'amitabh_bachchan', 'amitabh%20bachchan', 'amitabhbachchan',
-  ];
+  // For non-Wikimedia URLs, require name match
+  const nameParts = nameLower
+    .split(' ')
+    .filter(part => part.length > 2)
+    .map(part => part.replace(/[^a-z]/g, ''));
 
-  const hasWrongPerson = wrongPersonPatterns.some(pattern => {
-    if (urlLower.includes(pattern)) {
-      // Only reject if this pattern doesn't match the actual person's name
-      const matches = nameLower.replace(/\s+/g, '').includes(pattern.replace(/[_\s%20]/g, ''));
-      if (!matches) {
-        console.log(`    ✗ Rejected: URL contains different person's name (${pattern})`);
-        return true;
-      }
-    }
-    return false;
-  });
+  const hasNameMatch = nameParts.some(part => urlLower.includes(part));
 
-  if (hasWrongPerson) {
+  if (!hasNameMatch) {
+    console.log(`    ✗ Rejected: Non-Wikimedia URL doesn't contain person's name`);
     return false;
   }
 
