@@ -11,8 +11,18 @@ interface ShareButtonProps {
 export default function ShareButton({ fromName, toName, pathLength }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
 
-  const shareText = `I connected ${fromName} to ${toName} in just ${pathLength} hop${pathLength > 1 ? 's' : ''}! 🎬✨\n\nCan you find a shorter path? Try CelebLink:`;
-  const url = typeof window !== 'undefined' ? window.location.origin : 'https://celebslinks.com';
+  // Generate shareable URL
+  const nameToSlug = (name: string) => {
+    return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  };
+
+  const fromSlug = nameToSlug(fromName);
+  const toSlug = nameToSlug(toName);
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://celebslinks.com';
+  const shareableUrl = `${baseUrl}/connection/${fromSlug}/${toSlug}`;
+
+  const shareText = `I connected ${fromName} to ${toName} in just ${pathLength} hop${pathLength > 1 ? 's' : ''}! 🎬✨\n\nCan you beat that?`;
+  const url = shareableUrl;
 
   const handleShare = (platform: 'twitter' | 'facebook' | 'whatsapp' | 'copy') => {
     const encodedText = encodeURIComponent(shareText);

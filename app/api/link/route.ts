@@ -267,6 +267,13 @@ SHORTEST PATH REQUIREMENTS:
 - ONLY use 2+ intermediates if absolutely necessary
 - Always verify you cannot skip any intermediate person
 
+CRITICAL - HISTORICAL CONNECTIONS:
+- If people lived in different eras, find intermediates who overlapped with BOTH
+- Example: Raghuram Rajan (born 1963) → Narendra Modi → Barack Obama → someone who met Einstein
+- DON'T give up with "not contemporaries" - ALWAYS try to find a path through overlapping generations
+- Political leaders, diplomats, and long-lived public figures often bridge different eras
+- Check for: family members, colleagues, students/mentors who knew both people
+
 IMPORTANT PHOTO REQUIREMENTS:
 - Each connection MUST have likely photo evidence (major public events only)
 - If direct connection lacks photos, ADD intermediates with well-documented photo opportunities
