@@ -32,8 +32,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const adsenseId = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID;
+
   return (
     <html lang="en">
+      <head>
+        {adsenseId && (
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`}
+            crossOrigin="anonymous"
+          />
+        )}
+      </head>
       <body suppressHydrationWarning>{children}</body>
     </html>
   );
