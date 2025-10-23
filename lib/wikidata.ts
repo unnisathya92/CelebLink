@@ -327,11 +327,11 @@ function isLikelyPersonImage(url: string, name: string, isMeetingPhoto: boolean 
   const nameLower = name.toLowerCase();
 
   // List of image filenames that are definitely NOT person photos
+  // Note: Be careful with generic words that might appear in valid photo URLs
   const invalidPatterns = [
     'logo', 'icon', 'flag', 'map', 'chart', 'diagram',
     'safari', 'chrome', 'firefox', 'browser',
     'waterfall', 'mountain', 'landscape', 'building',
-    'animal', 'elephant', 'lion', 'tiger',
     'screenshot', 'interface', 'ui', 'software',
     '.svg', // SVG files are usually logos/icons
   ];

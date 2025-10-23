@@ -15,7 +15,7 @@ export default function GoogleAd({
   responsive = true,
   className = '',
 }: GoogleAdProps) {
-  const adRef = useRef<HTMLElement>(null);
+  const adRef = useRef<HTMLModElement>(null);
   const isInitialized = useRef(false);
 
   useEffect(() => {
