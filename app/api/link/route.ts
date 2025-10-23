@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { extractJson } from '@/lib/json';
 import type { Suggestion } from '@/lib/wikidata';
 import { getPersonImageFromWikipedia, searchPhotosOfPeopleTogether } from '@/lib/wikidata';
+import { searchMeetingPhotoGoogle } from '@/lib/googleImages';
 
 // Mock data for when no OpenAI key is available
 const MOCK_DATA = {
@@ -307,8 +308,8 @@ For intermediate people, ensure you use correct Wikidata QIDs.`,
         }
       }
 
-      // 2. Get meeting photos from Commons
-      console.log('\nFetching meeting photos from Commons...');
+      // 2. Get meeting photos from Commons (try Wikimedia first, then Google)
+      console.log('\nFetching meeting photos...');
       for (let i = 0; i < result.edges.length; i++) {
         const edge = result.edges[i];
         const fromNode = result.nodes.find((n: any) => n.qid === edge.from);
@@ -324,7 +325,17 @@ For intermediate people, ensure you use correct Wikidata QIDs.`,
         // Try to find a real photo if we don't have one
         if (!edge.photo.url) {
           console.log(`  Searching for: ${fromNode.name} + ${toNode.name}`);
-          const photoUrl = await searchPhotosOfPeopleTogether(fromNode.name, toNode.name);
+
+          // Try Wikimedia Commons first (free, no API key needed)
+          console.log(`  → Trying Wikimedia Commons...`);
+          let photoUrl = await searchPhotosOfPeopleTogether(fromNode.name, toNode.name);
+
+          // If no Commons photo, try Google Custom Search (requires API key)
+          if (!photoUrl) {
+            console.log(`  → Trying Google Custom Search...`);
+            photoUrl = await searchMeetingPhotoGoogle(fromNode.name, toNode.name);
+          }
+
           if (photoUrl) {
             edge.photo.url = photoUrl;
             console.log(`  ✓ Found: ${photoUrl}`);

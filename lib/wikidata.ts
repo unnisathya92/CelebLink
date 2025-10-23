@@ -275,8 +275,11 @@ LIMIT 1`;
 
 /**
  * Validate that an image URL is likely a person photo (not a random image)
+ * @param url - Image URL to validate
+ * @param name - Person's name
+ * @param isMeetingPhoto - If true, validation is more lenient (for photos of multiple people together)
  */
-function isLikelyPersonImage(url: string, name: string): boolean {
+function isLikelyPersonImage(url: string, name: string, isMeetingPhoto: boolean = false): boolean {
   if (!url) return false;
 
   const urlLower = url.toLowerCase();
@@ -301,49 +304,59 @@ function isLikelyPersonImage(url: string, name: string): boolean {
     return false;
   }
 
-  // Check if URL contains a different person's name (wrong person photo)
-  // Common celebrity names that shouldn't appear in other people's photos
+  // Extract name parts for matching
+  const nameParts = nameLower
+    .split(' ')
+    .filter(part => part.length > 2)
+    .map(part => part.replace(/[^a-z]/g, '')); // Remove non-letter chars
+
+  // For meeting photos (multiple people), be more lenient
+  if (isMeetingPhoto) {
+    console.log(`    ✓ Accepted: Meeting photo (lenient validation)`);
+    return true;
+  }
+
+  // For individual person photos, require name match in URL
+  // Check if URL contains person's actual name parts
+  const hasNameMatch = nameParts.some(part => {
+    // URL should contain at least one significant name part
+    return urlLower.includes(part);
+  });
+
+  if (!hasNameMatch) {
+    console.log(`    ✗ Rejected: URL doesn't contain person's name (${nameParts.join(', ')})`);
+    return false;
+  }
+
+  // Additional check: URL shouldn't contain OTHER well-known person names
+  // Build a list of common celebrity/politician names to watch for
   const wrongPersonPatterns = [
+    'michelle_obama', 'michelle%20obama', 'michelleobama',
+    'barack_obama', 'barack%20obama', 'barackobama',
     'tom_hanks', 'tom%20hanks', 'tomhanks',
     'donald_trump', 'donald%20trump', 'donaldtrump',
     'van_gogh', 'van%20gogh', 'vangogh',
-    'barack_obama', 'barack%20obama', 'barackobama',
     'robert_downey', 'robert%20downey', 'robertdowney',
+    'amitabh_bachchan', 'amitabh%20bachchan', 'amitabhbachchan',
   ];
 
   const hasWrongPerson = wrongPersonPatterns.some(pattern => {
     if (urlLower.includes(pattern)) {
       // Only reject if this pattern doesn't match the actual person's name
-      return !nameLower.replace(/\s+/g, '').includes(pattern.replace(/[_\s%20]/g, ''));
+      const matches = nameLower.replace(/\s+/g, '').includes(pattern.replace(/[_\s%20]/g, ''));
+      if (!matches) {
+        console.log(`    ✗ Rejected: URL contains different person's name (${pattern})`);
+        return true;
+      }
     }
     return false;
   });
 
   if (hasWrongPerson) {
-    console.log(`    ✗ Rejected: URL contains different person's name`);
     return false;
   }
 
-  // For Wikimedia Commons URLs, be lenient - trust the source
-  // Many valid photos have generic filenames like "G20_Summit_2015.jpg"
-  if (urlLower.includes('wikimedia.org') || urlLower.includes('wikipedia.org')) {
-    console.log(`    ✓ Accepted: Wikimedia Commons URL (trusted source)`);
-    return true;
-  }
-
-  // For non-Wikimedia URLs, check if the name is in the URL
-  const nameParts = nameLower
-    .split(' ')
-    .filter(part => part.length > 2)
-    .map(part => part.replace(/[^a-z]/g, ''));
-
-  const hasNameMatch = nameParts.some(part => urlLower.includes(part));
-
-  if (!hasNameMatch) {
-    console.log(`    ✗ Rejected: Non-Wikimedia URL doesn't contain person's name`);
-    return false;
-  }
-
+  console.log(`    ✓ Accepted: URL contains person's name`);
   return true;
 }
 
