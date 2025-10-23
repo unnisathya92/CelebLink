@@ -9,14 +9,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#0b0f19",
-        surface: "#0f1424",
-        border: "#1f2a44",
-        text: "#e6e6f0",
-        muted: "#9aa4bd",
-        accent: "#8b5cf6",
+        bg: "#0a0e1a",
+        surface: "#131827",
+        border: "#1e293b",
+        text: "#f1f5f9",
+        muted: "#94a3b8",
+        accent: "#6366f1",
+        accentHover: "#4f46e5",
         maleStick: "#3b82f6",
         femaleStick: "#ec4899",
+      },
+      boxShadow: {
+        'glow': '0 0 20px rgba(99, 102, 241, 0.15)',
+        'glow-lg': '0 0 40px rgba(99, 102, 241, 0.2)',
       },
     },
   },

@@ -108,32 +108,59 @@ export default function SearchCombo({
     setQuery(suggestion.name);
     setIsOpen(false);
     setSelectedIndex(-1);
+    setSuggestions([]); // Clear suggestions to prevent re-showing
   };
 
   return (
-    <div ref={wrapperRef} className="relative">
-      <label className="block text-sm font-medium text-text mb-2">
+    <div ref={wrapperRef} className="relative group">
+      <label className="block text-sm font-semibold text-text mb-3 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500"></span>
         {label}
       </label>
       <div className="relative">
+        {value && value.img && (
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+            <img
+              src={value.img}
+              alt={value.name}
+              className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/10"
+            />
+          </div>
+        )}
         <input
           type="text"
           role="combobox"
           aria-expanded={isOpen}
           aria-controls="suggestions-listbox"
           aria-autocomplete="list"
-          className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-text placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
+          className={`w-full ${value && value.img ? 'pl-16' : 'pl-5'} pr-12 py-4 bg-surface/50 border-2 border-border/50 rounded-2xl text-text placeholder-muted focus:outline-none focus:border-accent/50 focus:bg-surface transition-all duration-300 hover:border-border`}
           placeholder={`Search for ${label.toLowerCase()}...`}
           value={value ? value.name : query}
           onChange={(e) => {
-            setQuery(e.target.value);
-            if (value) onSelect(null as any); // Clear selection
+            const newQuery = e.target.value;
+            setQuery(newQuery);
+            if (value && newQuery !== value.name) {
+              onSelect(null as any); // Clear selection only if user is typing something different
+            }
           }}
           onKeyDown={handleKeyDown}
+          onFocus={() => {
+            // Don't reopen if we already have a value selected
+            if (value) {
+              setIsOpen(false);
+            }
+          }}
         />
         {loading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+            <div className="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+          </div>
+        )}
+        {!loading && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
         )}
       </div>
@@ -142,43 +169,49 @@ export default function SearchCombo({
         <div
           id="suggestions-listbox"
           role="listbox"
-          className="absolute z-50 w-full mt-2 bg-surface border border-border rounded-xl shadow-2xl max-h-96 overflow-y-auto"
+          className="absolute z-50 w-full mt-3 glass-strong rounded-2xl shadow-glow max-h-[400px] overflow-y-auto animate-scale-in"
         >
           {suggestions.map((suggestion, index) => (
             <div
               key={suggestion.qid}
               role="option"
               aria-selected={index === selectedIndex}
-              className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
+              className={`flex items-center gap-4 px-5 py-4 cursor-pointer transition-all duration-200 first:rounded-t-2xl last:rounded-b-2xl ${
                 index === selectedIndex
-                  ? 'bg-accent bg-opacity-20'
-                  : 'hover:bg-border'
+                  ? 'bg-accent/20 border-l-4 border-accent'
+                  : 'hover:bg-white/5 border-l-4 border-transparent'
               }`}
               onClick={() => handleSelect(suggestion)}
             >
               {suggestion.img ? (
-                <img
-                  src={suggestion.img}
-                  alt={suggestion.name}
-                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                />
+                <div className="relative">
+                  <img
+                    src={suggestion.img}
+                    alt={suggestion.name}
+                    className="w-12 h-12 rounded-xl object-cover flex-shrink-0 ring-2 ring-white/10"
+                  />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20"></div>
+                </div>
               ) : (
-                <div className="w-8 h-8 rounded-full bg-border flex items-center justify-center flex-shrink-0">
-                  <span className="text-muted text-xs">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center flex-shrink-0 ring-2 ring-white/10">
+                  <span className="text-text text-lg font-semibold">
                     {suggestion.name[0]}
                   </span>
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="text-text font-medium truncate">
+                <div className="text-text font-semibold truncate text-lg">
                   {suggestion.name}
                 </div>
                 {suggestion.description && (
-                  <div className="text-muted text-sm truncate">
+                  <div className="text-muted text-sm truncate mt-0.5">
                     {suggestion.description}
                   </div>
                 )}
               </div>
+              <svg className={`w-5 h-5 flex-shrink-0 transition-opacity ${index === selectedIndex ? 'opacity-100 text-accent' : 'opacity-0'}`} fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
             </div>
           ))}
         </div>

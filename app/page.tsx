@@ -1,10 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import SearchCombo from '@/components/SearchCombo';
 import PathViewer from '@/components/PathViewer';
-import HandshakeTimeline from '@/components/HandshakeTimeline';
+// import HandshakeTimeline from '@/components/HandshakeTimeline'; // Removed per user request
+import LoadingWordRing from '@/components/LoadingWordRing';
 import type { Suggestion } from '@/lib/wikidata';
+
+const LOADING_MESSAGES = [
+  "Discovering connections across the globe...",
+  "Tracing pathways through time and space...",
+  "Exploring political summits and conferences...",
+  "Searching through sports events and ceremonies...",
+  "Following the trail of collaborative projects...",
+  "Scanning charity galas and fundraisers...",
+  "Checking international award shows...",
+  "Investigating business conferences and panels...",
+  "Mapping connections across all industries...",
+  "Reviewing talk show appearances and interviews...",
+  "Exploring scientific symposiums and lectures...",
+  "Finding shared humanitarian missions...",
+  "Tracking global summit meetings...",
+  "Uncovering cultural exchange programs...",
+  "Analyzing music festivals and concerts...",
+  "Searching through historical gatherings...",
+  "Following diplomatic encounters worldwide...",
+  "Discovering activist collaborations...",
+  "Connecting dots across entertainment, politics, and beyond...",
+  "Exploring the web of famous encounters...",
+];
 
 interface Person {
   qid: string;
@@ -39,7 +63,22 @@ export default function Home() {
   const [result, setResult] = useState<LinkResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [animationKey, setAnimationKey] = useState(0);
+  // const [animationKey, setAnimationKey] = useState(0); // Removed with animation
+  const [showForm, setShowForm] = useState(true);
+  const [showResults, setShowResults] = useState(true);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+
+  // Rotate loading messages every 2 seconds while loading
+  useEffect(() => {
+    if (loading) {
+      const interval = setInterval(() => {
+        setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
+      }, 2000);
+      return () => clearInterval(interval);
+    } else {
+      setLoadingMessageIndex(0); // Reset when not loading
+    }
+  }, [loading]);
 
   const handleLink = async () => {
     if (!fromCeleb || !toCeleb) return;
@@ -47,6 +86,8 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setShowForm(false); // Hide form when searching
+    setShowResults(true);
 
     try {
       const res = await fetch('/api/link', {
@@ -61,9 +102,15 @@ export default function Home() {
 
       const data = await res.json();
       setResult(data);
-      setAnimationKey((prev) => prev + 1); // Force animation replay
+      // setAnimationKey((prev) => prev + 1); // Removed with animation
+
+      // Show form again if no connections found
+      if (!data.edges || data.edges.length === 0) {
+        setShowForm(true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
+      setShowForm(true); // Show form on error
     } finally {
       setLoading(false);
     }
@@ -72,92 +119,195 @@ export default function Home() {
   const canLink = fromCeleb && toCeleb && !loading;
 
   return (
-    <main className="min-h-screen bg-bg py-12 px-4">
-      <div className="max-w-[860px] mx-auto space-y-12">
+    <main className="min-h-screen py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Floating decorative elements */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-40 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute bottom-20 left-1/4 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }}></div>
+
+        {/* Sparkle effects */}
+        <div className="absolute top-1/4 right-1/4 w-2 h-2 bg-blue-400 rounded-full animate-ping" style={{ animationDuration: '3s' }}></div>
+        <div className="absolute top-1/3 left-1/3 w-2 h-2 bg-purple-400 rounded-full animate-ping" style={{ animationDuration: '4s', animationDelay: '1s' }}></div>
+        <div className="absolute bottom-1/3 right-1/3 w-2 h-2 bg-indigo-400 rounded-full animate-ping" style={{ animationDuration: '5s', animationDelay: '2s' }}></div>
+      </div>
+
+      <div className="max-w-4xl mx-auto space-y-16 relative z-10">
         {/* Header */}
-        <div className="text-center space-y-3">
-          <h1 className="text-4xl font-bold text-text">CelebLink</h1>
-          <p className="text-muted text-lg">
-            Discover how any two celebrities are connected through photos
+        <div className="text-center space-y-6 animate-fade-in">
+          <div className="inline-block relative">
+            {/* Glow effect behind title */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 blur-3xl opacity-30 animate-pulse"></div>
+            <h1 className="text-6xl sm:text-7xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent mb-2 relative animate-gradient">
+              CelebLink
+            </h1>
+            <div className="h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 rounded-full animate-gradient"></div>
+          </div>
+          <p className="text-muted text-xl sm:text-2xl font-light max-w-2xl mx-auto leading-relaxed">
+            A fun way to connect celebrities through their shared moments and meetings
           </p>
         </div>
 
         {/* Search inputs */}
-        <div className="space-y-6">
-          <SearchCombo
-            label="From Celebrity"
-            value={fromCeleb}
-            onSelect={setFromCeleb}
-          />
-          <SearchCombo
-            label="To Celebrity"
-            value={toCeleb}
-            onSelect={setToCeleb}
-          />
+        {showForm && (
+          <div className="glass-strong rounded-3xl p-8 sm:p-10 shadow-glow-lg space-y-8 animate-slide-in">
+            <SearchCombo
+              label="From Celebrity"
+              value={fromCeleb}
+              onSelect={setFromCeleb}
+            />
 
-          <div className="flex justify-center">
-            <button
-              onClick={handleLink}
-              disabled={!canLink}
-              className="px-8 py-4 bg-accent hover:bg-accent/90 disabled:bg-muted disabled:cursor-not-allowed text-white rounded-xl font-semibold text-lg transition-all transform hover:scale-105 disabled:transform-none disabled:hover:scale-100"
-            >
-              {loading ? (
-                <span className="flex items-center gap-3">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Finding Connection...
-                </span>
-              ) : (
-                'Find Link'
-              )}
-            </button>
+            <div className="flex justify-center my-4">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur opacity-20"></div>
+                <div className="relative w-14 h-14 flex items-center justify-center rounded-full glass border-2 border-accent/30">
+                  <svg className="w-7 h-7 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <SearchCombo
+              label="To Celebrity"
+              value={toCeleb}
+              onSelect={setToCeleb}
+            />
+
+            <div className="flex justify-center pt-4">
+              <button
+                onClick={handleLink}
+                disabled={!canLink}
+                className="group relative px-10 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-white rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-glow-lg disabled:transform-none disabled:hover:scale-100 disabled:shadow-none"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-3">
+                    <LoadingWordRing />
+                  </span>
+                ) : (
+                  <>
+                    <span className="relative z-10">Find Connection</span>
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity blur-xl"></div>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Loading state */}
+        {loading && (
+          <div className="glass-strong rounded-3xl p-12 sm:p-16 shadow-glow flex flex-col items-center justify-center animate-scale-in space-y-4">
+            <LoadingWordRing />
+            <p className="text-muted text-lg text-center transition-all duration-500 ease-in-out">
+              {LOADING_MESSAGES[loadingMessageIndex]}
+            </p>
+          </div>
+        )}
 
         {/* Error message */}
         {error && (
-          <div className="bg-red-500 bg-opacity-10 border border-red-500 rounded-xl p-4 text-center">
-            <p className="text-red-400">{error}</p>
+          <div className="glass rounded-2xl p-6 border border-red-500/30 bg-red-500/5 text-center animate-scale-in">
+            <div className="flex items-center justify-center gap-3 text-red-400">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <p className="font-medium">{error}</p>
+            </div>
           </div>
         )}
 
         {/* Results */}
         {result && (
-          <div className="space-y-8">
-            {/* Path viewer */}
-            <div>
-              <h2 className="text-2xl font-bold text-text mb-4">
-                Connection Path
-              </h2>
-              <PathViewer nodes={result.nodes} edges={result.edges} />
+          <div className="space-y-6 animate-slide-up">
+            {/* Action buttons */}
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => setShowResults(!showResults)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
+              >
+                {showResults ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    Minimize
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                    Show Connection
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowForm(true);
+                  setResult(null);
+                  setShowResults(true);
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Find Another
+              </button>
             </div>
 
-            {/* Animation */}
-            {result.edges.length > 0 && (
-              <div>
-                <h2 className="text-2xl font-bold text-text mb-4">
-                  Animation Timeline
-                </h2>
-                <HandshakeTimeline
-                  key={animationKey}
-                  nodes={result.nodes}
-                  edges={result.edges}
-                  autoPlay={true}
-                />
-              </div>
+            {showResults && (
+              <>
+                {/* Path viewer */}
+                <div className="glass-strong rounded-3xl p-8 sm:p-10 shadow-glow">
+                  <div className="flex items-center gap-3 mb-8">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                    </div>
+                    <h2 className="text-3xl font-bold text-text">
+                      Connection Path
+                    </h2>
+                  </div>
+                  <PathViewer nodes={result.nodes} edges={result.edges} />
+                </div>
+
+                {/* Animation below - REMOVED per user request */}
+                {/* {result.edges.length > 0 && (
+                  <div className="glass-strong rounded-3xl p-8 sm:p-10 shadow-glow">
+                    <div className="flex items-center gap-3 mb-8">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h2 className="text-3xl font-bold text-text">
+                        Visual Timeline
+                      </h2>
+                    </div>
+                    <HandshakeTimeline
+                      key={animationKey}
+                      nodes={result.nodes}
+                      edges={result.edges}
+                      autoPlay={true}
+                    />
+                  </div>
+                )} */}
+              </>
             )}
           </div>
         )}
 
         {/* Footer */}
-        <div className="text-center text-muted text-sm pt-8 border-t border-border">
-          <p>
-            Data from Wikidata and Wikimedia Commons.
-            {!process.env.NEXT_PUBLIC_HAS_OPENAI_KEY && (
-              <span className="block mt-2 text-yellow-500">
-                Running in demo mode with mock data. Add OPENAI_API_KEY to
-                enable real connections.
-              </span>
-            )}
+        <div className="text-center text-muted/70 text-sm pt-12 space-y-2">
+          <p className="flex items-center justify-center gap-2">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            </svg>
+            Powered by Wikidata and Wikimedia Commons
           </p>
         </div>
       </div>

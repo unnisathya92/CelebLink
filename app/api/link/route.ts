@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { system, user } from '@/lib/openaiPrompt';
 import { extractJson } from '@/lib/json';
 import type { Suggestion } from '@/lib/wikidata';
+import { getPersonImageFromWikipedia, searchPhotosOfPeopleTogether } from '@/lib/wikidata';
 
 // Mock data for when no OpenAI key is available
 const MOCK_DATA = {
@@ -91,25 +91,249 @@ export async function POST(request: NextRequest) {
     try {
       const openai = new OpenAI({ apiKey });
 
+      // Log the prompts being sent
+      console.log('\n========== OPENAI REQUEST ==========');
+      console.log('From:', from.name, `(${from.qid})`);
+      console.log('To:', to.name, `(${to.qid})`);
+      console.log('\n--- SYSTEM PROMPT ---');
+      console.log(`
+You are an expert in identifying verifiable public photographs that depict known people together.
+You must return STRICT JSON showing the SHORTEST PLAUSIBLE REAL photo chain linking two named public figures
+(any domain—film, politics, sports, science, business, activism, etc.).
+Prefer Wikimedia Commons or other editorially verified sources with clear evidence (e.g., Getty, Reuters, AP).
+Avoid speculative or fabricated links.
+
+Each hop (A→B) must have a REAL public image showing BOTH individuals together in the same frame
+(e.g., events, summits, award shows, conferences, humanitarian gatherings, etc.).
+Include 1–8 edges maximum.
+
+Schema (no deviation allowed):
+{
+  "nodes": [
+    { "qid": "Q...", "name": "Name", "img": "https://..." }
+  ],
+  "edges": [
+    {
+      "from": "Q...",
+      "to": "Q...",
+      "photo": {
+        "url": "https://...",
+        "caption": "string",
+        "date": "YYYY-MM-DD or ''",
+        "location": "string or ''",
+        "license": "string or ''",
+        "source": "https://..."
+      }
+    }
+  ]
+}
+
+If absolutely no photographic path exists after reasonable search knowledge, return only the two nodes and an empty "edges" array.
+`);
+      console.log('\n--- USER PROMPT ---');
+      console.log(`
+From: ${from.name} (${from.qid})
+To: ${to.name} (${to.qid})
+
+Find and return a verified photo path (A→B→C…→Z) that connects them through public co-appearances.
+Include intermediates from ANY domain if needed — not just cinema.
+Prioritize real photographic evidence, event photos, award ceremonies, global summits, etc.
+`);
+      console.log('====================================\n');
+
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user(from, to) },
+          {
+            role: 'system',
+            content: `
+You are an expert in finding connections between notable people across any field.
+
+Your goal: return STRICT JSON showing the SHORTEST PLAUSIBLE connection chain linking two named individuals.
+
+CRITICAL PRIORITY - PHOTO AVAILABILITY:
+- ONLY suggest connections where REAL public photographs exist of the two people together
+- Prioritize widely-documented public events with extensive photo coverage:
+  * Major award ceremonies (Oscars, Grammys, Nobel Prize, etc.)
+  * G20/G7/UN summits with official photography
+  * High-profile film premieres and festivals
+  * Major sports events (Olympics, World Cup)
+  * Well-documented charity galas and fundraisers
+  * Press conferences with multiple people
+  * TV shows, interviews, and talk shows with video/photo evidence
+- AVOID obscure meetings or private gatherings unlikely to have photos
+- If a direct connection lacks photos, find an intermediate person with PHOTO-DOCUMENTED connections to both
+
+CRITICAL INSTRUCTIONS FOR PHOTO URLs:
+- LEAVE url EMPTY ("") - we will fetch real photos from Wikipedia/Commons automatically
+- Focus on providing accurate caption, date, location, and source (Wikipedia article URL)
+- DO NOT attempt to provide image URLs - you will get them wrong
+- DO NOT use example.com or make up URLs
+- Your job is to identify WHO met WHERE and WHEN with PHOTOGRAPHIC EVIDENCE
+
+Guidelines:
+- Each hop (A→B) MUST be a meeting/event likely to have PUBLIC photographs
+- Include 1–8 edges maximum (prefer more intermediates if it means better photo coverage)
+- Use intermediates from any domain (music, politics, cinema, sports, activism, etc.)
+- Provide detailed, accurate captions describing the PHOTOGRAPHED meeting/event
+- Include dates (YYYY-MM-DD format) and locations whenever possible
+- Include Wikipedia article URLs as source for verification
+- Confidence should be "high" only if you're certain photos exist
+
+Return STRICT JSON in this schema:
+
+{
+  "nodes": [
+    { "qid": "Q...", "name": "Full Name", "img": "" }
+  ],
+  "edges": [
+    {
+      "from": "Q...",
+      "to": "Q...",
+      "photo": {
+        "url": "",
+        "caption": "Detailed description of PHOTOGRAPHED meeting (e.g., 'Photographed together at the 2015 Cannes Film Festival red carpet')",
+        "date": "YYYY-MM-DD or ''",
+        "location": "City, Country or ''",
+        "license": "",
+        "source": "https://en.wikipedia.org/wiki/Article_Name",
+        "confidence": "high | medium"
+      }
+    }
+  ]
+}
+
+EXAMPLE of good caption: "Photographed together at the 2018 Met Gala in New York City"
+EXAMPLE of bad caption: "They might have met" or "They worked in the same industry"
+
+If absolutely no PHOTO-DOCUMENTED connection path exists, return only the two nodes with an empty "edges" array.`,
+          },
+          {
+            role: 'user',
+            content: `
+From: ${from.name} (${from.qid})
+To: ${to.name} (${to.qid})
+
+CRITICAL: The first node MUST be ${from.name} with QID ${from.qid}
+CRITICAL: The last node MUST be ${to.name} with QID ${to.qid}
+CRITICAL: Use the EXACT QIDs provided - do NOT change them
+
+Find and return a PHOTO-DOCUMENTED connection path (A→B→C…→Z) connecting them.
+
+IMPORTANT PHOTO REQUIREMENTS:
+- Each connection MUST have likely photo evidence (major public events only)
+- If direct connection lacks photos, ADD intermediates with well-documented photo opportunities
+- Example: Instead of "Raghuram Rajan + Bill Clinton" (unlikely photo), use:
+  "Raghuram Rajan + Narendra Modi" (G20/official meetings - photos exist) →
+  "Narendra Modi + Barack Obama" (White House visits - photos exist) →
+  "Barack Obama + Bill Clinton" (Democratic events - photos exist)
+- Prioritize famous, widely-covered public events over obscure meetings
+
+Include intermediates from any domain if needed (music, politics, cinema, sports, activism, etc.).
+For intermediate people, ensure you use correct Wikidata QIDs.`,
+          },
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
       });
 
       const content = completion.choices[0]?.message?.content || '';
 
+      // Log the raw response
+      console.log('\n========== OPENAI RESPONSE ==========');
+      console.log('Raw response:');
+      console.log(content);
+      console.log('=====================================\n');
+
       // Try to extract JSON from response
       const result = extractJson(content);
+
+      // Log the parsed JSON
+      console.log('\n========== PARSED JSON ==========');
+      console.log(JSON.stringify(result, null, 2));
+      console.log('=================================\n');
 
       if (!result || !result.nodes || !result.edges) {
         console.error('Failed to parse OpenAI response, using mock data');
         return NextResponse.json(MOCK_DATA);
       }
+
+      // Fix: Reorder nodes based on edge connections
+      if (result.edges.length > 0) {
+        const nodeMap = new Map(result.nodes.map((n: any) => [n.qid, n]));
+        const orderedNodes = [];
+
+        // Start with the first edge's "from" node
+        const firstNode = nodeMap.get(result.edges[0].from);
+        if (firstNode) orderedNodes.push(firstNode);
+
+        // Follow the chain through edges
+        for (const edge of result.edges) {
+          const toNode = nodeMap.get(edge.to);
+          if (toNode && !orderedNodes.find((n: any) => n.qid === toNode.qid)) {
+            orderedNodes.push(toNode);
+          }
+        }
+
+        // Add any remaining nodes that weren't in the chain
+        for (const node of result.nodes) {
+          if (!orderedNodes.find((n: any) => n.qid === node.qid)) {
+            orderedNodes.push(node);
+          }
+        }
+
+        result.nodes = orderedNodes;
+
+        console.log('\n========== REORDERED NODES ==========');
+        console.log(result.nodes.map((n: any) => n.name).join(' → '));
+        console.log('=====================================\n');
+      }
+
+      // Fetch real photos for nodes and edges
+      console.log('\n========== FETCHING REAL PHOTOS ==========');
+
+      // 1. Get person photos from Wikipedia
+      console.log('\nFetching person photos from Wikipedia...');
+      for (const node of result.nodes) {
+        if (!node.img || node.img.includes('example.com')) {
+          console.log(`  Fetching photo for ${node.name} (${node.qid})`);
+          const photoUrl = await getPersonImageFromWikipedia(node.qid, node.name);
+          if (photoUrl) {
+            node.img = photoUrl;
+            console.log(`  ✓ Found: ${photoUrl}`);
+          } else {
+            console.log(`  ✗ No photo found`);
+          }
+        }
+      }
+
+      // 2. Get meeting photos from Commons
+      console.log('\nFetching meeting photos from Commons...');
+      for (let i = 0; i < result.edges.length; i++) {
+        const edge = result.edges[i];
+        const fromNode = result.nodes.find((n: any) => n.qid === edge.from);
+        const toNode = result.nodes.find((n: any) => n.qid === edge.to);
+
+        if (!fromNode || !toNode) continue;
+
+        // Remove fake URLs
+        if (edge.photo.url && edge.photo.url.includes('example.com')) {
+          edge.photo.url = '';
+        }
+
+        // Try to find a real photo if we don't have one
+        if (!edge.photo.url) {
+          console.log(`  Searching for: ${fromNode.name} + ${toNode.name}`);
+          const photoUrl = await searchPhotosOfPeopleTogether(fromNode.name, toNode.name);
+          if (photoUrl) {
+            edge.photo.url = photoUrl;
+            console.log(`  ✓ Found: ${photoUrl}`);
+          } else {
+            console.log(`  ✗ No photo found - will show text only`);
+          }
+        }
+      }
+      console.log('==========================================\n');
 
       return NextResponse.json(result);
     } catch (openaiError) {

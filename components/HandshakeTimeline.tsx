@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Person {
   qid: string;
@@ -30,407 +30,216 @@ interface HandshakeTimelineProps {
   autoPlay?: boolean;
 }
 
-const MALE_COLOR = '#3b82f6';
-const FEMALE_COLOR = '#ec4899';
-const DEFAULT_COLOR = '#9aa4bd';
-
 export default function HandshakeTimeline({
   nodes,
   edges,
   autoPlay = true,
 }: HandshakeTimelineProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [visibleLines, setVisibleLines] = useState<number[]>([]);
+  const [imgErrors, setImgErrors] = useState<Set<number>>(new Set());
 
-  // Check for reduced motion preference
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
-
-    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
-
-  // Auto-play on mount
-  useEffect(() => {
-    if (autoPlay && !isAnimating && edges.length > 0) {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => playAnimation(), 300);
+    if (autoPlay && edges.length > 0) {
+      // Animate lines appearing one by one
+      const timer = setTimeout(() => {
+        edges.forEach((_, index) => {
+          setTimeout(() => {
+            setVisibleLines((prev) => [...prev, index]);
+          }, index * 800); // 800ms delay between each line
+        });
+      }, 300);
       return () => clearTimeout(timer);
+    } else {
+      // Show all lines immediately if not autoPlay
+      setVisibleLines(edges.map((_, i) => i));
     }
   }, [autoPlay, edges.length]);
 
-  const getPersonColor = (person: Person) => {
-    if (person.gender === 'male') return MALE_COLOR;
-    if (person.gender === 'female') return FEMALE_COLOR;
-    return DEFAULT_COLOR;
+  const handleImgError = (index: number) => {
+    setImgErrors((prev) => new Set([...prev, index]));
   };
 
-  const playAnimation = async () => {
-    if (isAnimating || !svgRef.current || edges.length === 0) return;
-
-    setIsAnimating(true);
-
-    try {
-      if (prefersReducedMotion) {
-        // Reduced motion: just fade and snap
-        await playReducedMotionAnimation();
-      } else {
-        // Full animation with walking
-        await playFullAnimation();
-      }
-    } catch (error) {
-      console.error('Animation error:', error);
-    } finally {
-      setIsAnimating(false);
-    }
+  const getNodeByQid = (qid: string): Person | undefined => {
+    return nodes.find((node) => node.qid === qid);
   };
 
-  const playReducedMotionAnimation = async () => {
-    const svg = svgRef.current;
-    if (!svg) return;
-
-    // Show all figures and evidence cards with fade-in
-    for (let i = 0; i < edges.length; i++) {
-      const figure = svg.querySelector(`#figure-${i + 1}`);
-      const evidence = svg.querySelector(`#evidence-${i}`);
-
-      if (figure) {
-        await animate(figure, [{ opacity: 0 }, { opacity: 1 }], {
-          duration: 300,
-          fill: 'forwards',
-        });
-      }
-
-      if (evidence) {
-        await animate(evidence, [{ opacity: 0 }, { opacity: 1 }], {
-          duration: 300,
-          fill: 'forwards',
-        });
-      }
-    }
-
-    // Final zoom
-    const firstFigure = svg.querySelector('#figure-0');
-    const lastFigure = svg.querySelector(`#figure-${nodes.length - 1}`);
-    if (firstFigure && lastFigure) {
-      await Promise.all([
-        animate(firstFigure, [{ transform: 'scale(1)' }, { transform: 'scale(1.2)' }], {
-          duration: 400,
-          fill: 'forwards',
-        }),
-        animate(lastFigure, [{ transform: 'scale(1)' }, { transform: 'scale(1.2)' }], {
-          duration: 400,
-          fill: 'forwards',
-        }),
-      ]);
-    }
-  };
-
-  const playFullAnimation = async () => {
-    const svg = svgRef.current;
-    if (!svg) return;
-
-    // Animate each connection
-    for (let i = 0; i < edges.length; i++) {
-      const figure = svg.querySelector(`#figure-${i + 1}`);
-      const leftArm = svg.querySelector(`#figure-${i + 1}-left-arm`);
-      const rightArmPrev = svg.querySelector(`#figure-${i}-right-arm`);
-      const evidence = svg.querySelector(`#evidence-${i}`);
-
-      if (!figure) continue;
-
-      // 1. Walk in from right
-      await animate(
-        figure,
-        [
-          { transform: 'translateX(100px)', opacity: 0 },
-          { transform: 'translateX(0)', opacity: 1 },
-        ],
-        { duration: 600, easing: 'ease-out', fill: 'forwards' }
-      );
-
-      // 2. Handshake (move arms)
-      const handshakePromises = [];
-      if (leftArm) {
-        handshakePromises.push(
-          animate(
-            leftArm,
-            [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-45deg)' }],
-            { duration: 300, easing: 'ease-in-out', fill: 'forwards' }
-          )
-        );
-      }
-      if (rightArmPrev) {
-        handshakePromises.push(
-          animate(
-            rightArmPrev,
-            [{ transform: 'rotate(0deg)' }, { transform: 'rotate(45deg)' }],
-            { duration: 300, easing: 'ease-in-out', fill: 'forwards' }
-          )
-        );
-      }
-      await Promise.all(handshakePromises);
-
-      // 3. Show evidence card
-      if (evidence) {
-        await animate(evidence, [{ opacity: 0 }, { opacity: 1 }], {
-          duration: 400,
-          fill: 'forwards',
-        });
-      }
-
-      // 4. Return arms
-      const returnPromises = [];
-      if (leftArm) {
-        returnPromises.push(
-          animate(
-            leftArm,
-            [{ transform: 'rotate(-45deg)' }, { transform: 'rotate(0deg)' }],
-            { duration: 300, easing: 'ease-in-out', fill: 'forwards' }
-          )
-        );
-      }
-      if (rightArmPrev) {
-        returnPromises.push(
-          animate(
-            rightArmPrev,
-            [{ transform: 'rotate(45deg)' }, { transform: 'rotate(0deg)' }],
-            { duration: 300, easing: 'ease-in-out', fill: 'forwards' }
-          )
-        );
-      }
-      await Promise.all(returnPromises);
-
-      // Small pause
-      await delay(200);
-    }
-
-    // Final: zoom first and last, first places hand on last's shoulder
-    const firstFigure = svg.querySelector('#figure-0');
-    const lastFigure = svg.querySelector(`#figure-${nodes.length - 1}`);
-    const firstLeftArm = svg.querySelector('#figure-0-left-arm');
-
-    if (firstFigure && lastFigure) {
-      const promises = [
-        animate(
-          firstFigure,
-          [{ transform: 'scale(1)' }, { transform: 'scale(1.2)' }],
-          { duration: 500, fill: 'forwards' }
-        ),
-        animate(
-          lastFigure,
-          [{ transform: 'scale(1)' }, { transform: 'scale(1.2)' }],
-          { duration: 500, fill: 'forwards' }
-        ),
-      ];
-
-      if (firstLeftArm) {
-        promises.push(
-          animate(
-            firstLeftArm,
-            [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-30deg)' }],
-            { duration: 500, easing: 'ease-in-out', fill: 'forwards' }
-          )
-        );
-      }
-
-      await Promise.all(promises);
-    }
-  };
-
-  // Helper to promisify Web Animations API
-  const animate = (
-    element: Element,
-    keyframes: Keyframe[],
-    options: KeyframeAnimationOptions
-  ): Promise<void> => {
-    return new Promise((resolve) => {
-      const animation = element.animate(keyframes, options);
-      animation.onfinish = () => resolve();
-    });
-  };
-
-  const delay = (ms: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms));
-
-  if (edges.length === 0) return null;
-
-  const figureSpacing = 150;
-  const figureHeight = 120;
-  const headRadius = 20;
+  if (edges.length === 0) {
+    return (
+      <div className="text-center text-muted py-8">
+        <p>No connection path found</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full overflow-x-auto bg-surface rounded-xl p-8 border border-border">
-      <div className="flex flex-col items-center gap-6">
-        <button
-          onClick={playAnimation}
-          disabled={isAnimating}
-          className="px-6 py-3 bg-accent hover:bg-accent/90 disabled:bg-muted disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
-        >
-          {isAnimating ? 'Animating...' : 'Play Animation'}
-        </button>
+    <div className="space-y-6">
+      {edges.map((edge, index) => {
+        const fromNode = getNodeByQid(edge.from);
+        const toNode = getNodeByQid(edge.to);
+        const isVisible = visibleLines.includes(index);
+        const hasPhoto = edge.photo.url && !imgErrors.has(index);
 
-        <svg
-          ref={svgRef}
-          width={Math.max(800, nodes.length * figureSpacing + 100)}
-          height={300}
-          className="mx-auto"
-        >
-          {/* Render all stick figures */}
-          {nodes.map((node, index) => {
-            const x = 100 + index * figureSpacing;
-            const y = 150;
-            const color = getPersonColor(node);
-            const isFirst = index === 0;
-            const isLast = index === nodes.length - 1;
+        if (!fromNode || !toNode) return null;
 
-            return (
-              <g
-                key={node.qid}
-                id={`figure-${index}`}
-                style={{ opacity: isFirst ? 1 : 0 }}
-              >
-                {/* Head with image */}
-                <defs>
-                  <clipPath id={`clip-${index}`}>
-                    <circle cx={x} cy={y - figureHeight / 2} r={headRadius} />
-                  </clipPath>
-                </defs>
-                {node.img ? (
-                  <image
-                    href={node.img}
-                    x={x - headRadius}
-                    y={y - figureHeight / 2 - headRadius}
-                    width={headRadius * 2}
-                    height={headRadius * 2}
-                    clipPath={`url(#clip-${index})`}
-                    preserveAspectRatio="xMidYMid slice"
-                  />
-                ) : (
-                  <circle
-                    cx={x}
-                    cy={y - figureHeight / 2}
-                    r={headRadius}
-                    fill={color}
-                    opacity="0.5"
-                  />
-                )}
-                <circle
-                  cx={x}
-                  cy={y - figureHeight / 2}
-                  r={headRadius}
+        return (
+          <div
+            key={index}
+            className={`transition-all duration-700 ${
+              isVisible
+                ? 'opacity-100 translate-y-0'
+                : 'opacity-0 translate-y-4'
+            }`}
+          >
+            <div className="glass rounded-2xl p-6 border border-border hover:border-accent/30 transition-all">
+              <div className="flex items-center gap-4 flex-wrap">
+                {/* From Celebrity */}
+                <div className="flex items-center gap-3 min-w-[150px]">
+                  {fromNode.img ? (
+                    <img
+                      src={fromNode.img}
+                      alt={fromNode.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-accent/30"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-2 border-accent/30 flex items-center justify-center">
+                      <span className="text-xl font-bold text-accent">
+                        {fromNode.name.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                  <span className="font-semibold text-text">{fromNode.name}</span>
+                </div>
+
+                {/* Arrow */}
+                <svg
+                  className="w-6 h-6 text-accent flex-shrink-0"
                   fill="none"
-                  stroke={color}
-                  strokeWidth="2"
-                />
-
-                {/* Body */}
-                <line
-                  x1={x}
-                  y1={y - figureHeight / 2 + headRadius}
-                  x2={x}
-                  y2={y - 10}
-                  stroke={color}
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-
-                {/* Left arm */}
-                <g id={`figure-${index}-left-arm`} style={{ transformOrigin: `${x}px ${y - 50}px` }}>
-                  <line
-                    x1={x}
-                    y1={y - 50}
-                    x2={x - 25}
-                    y2={y - 30}
-                    stroke={color}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                  />
-                </g>
-
-                {/* Right arm */}
-                <g id={`figure-${index}-right-arm`} style={{ transformOrigin: `${x}px ${y - 50}px` }}>
-                  <line
-                    x1={x}
-                    y1={y - 50}
-                    x2={x + 25}
-                    y2={y - 30}
-                    stroke={color}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                  />
-                </g>
-
-                {/* Legs */}
-                <line
-                  x1={x}
-                  y1={y - 10}
-                  x2={x - 15}
-                  y2={y + 30}
-                  stroke={color}
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-                <line
-                  x1={x}
-                  y1={y - 10}
-                  x2={x + 15}
-                  y2={y + 30}
-                  stroke={color}
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-
-                {/* Name label */}
-                <text
-                  x={x}
-                  y={y + 55}
-                  textAnchor="middle"
-                  fill="#e6e6f0"
-                  fontSize="12"
-                  fontWeight="500"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  {node.name}
-                </text>
-              </g>
-            );
-          })}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
 
-          {/* Evidence cards between figures */}
-          {edges.map((edge, index) => {
-            const x = 100 + index * figureSpacing + figureSpacing / 2;
-            const y = 80;
+                {/* To Celebrity */}
+                <div className="flex items-center gap-3 min-w-[150px]">
+                  {toNode.img ? (
+                    <img
+                      src={toNode.img}
+                      alt={toNode.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-accent/30"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border-2 border-accent/30 flex items-center justify-center">
+                      <span className="text-xl font-bold text-accent">
+                        {toNode.name.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                  <span className="font-semibold text-text">{toNode.name}</span>
+                </div>
 
-            return (
-              <g key={index} id={`evidence-${index}`} style={{ opacity: 0 }}>
-                <rect
-                  x={x - 30}
-                  y={y - 15}
-                  width={60}
-                  height={30}
-                  fill="#8b5cf6"
-                  rx="4"
-                  opacity="0.8"
-                />
-                <text
-                  x={x}
-                  y={y}
-                  textAnchor="middle"
-                  fill="#ffffff"
-                  fontSize="10"
-                  fontWeight="600"
-                  dominantBaseline="middle"
+                {/* Arrow */}
+                <svg
+                  className="w-6 h-6 text-accent flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  Photo
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
+
+                {/* Meeting Photo and Location */}
+                <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+                  {hasPhoto ? (
+                    <div className="relative overflow-hidden rounded-xl w-16 h-16 bg-gradient-to-br from-indigo-500/20 to-pink-500/20 flex-shrink-0">
+                      <img
+                        src={edge.photo.url}
+                        alt={edge.photo.caption}
+                        className="w-full h-full object-cover"
+                        onError={() => handleImgError(index)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-indigo-500/20 to-pink-500/20 flex items-center justify-center flex-shrink-0">
+                      <svg
+                        className="w-8 h-8 text-accent/50"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                  )}
+
+                  <div className="flex-1">
+                    <div className="text-sm text-muted line-clamp-2">
+                      {edge.photo.caption}
+                    </div>
+                    {edge.photo.location && (
+                      <div className="flex items-center gap-1 text-xs text-accent mt-1">
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
+                        <span>{edge.photo.location}</span>
+                      </div>
+                    )}
+                    {edge.photo.date && (
+                      <div className="flex items-center gap-1 text-xs text-muted/70 mt-1">
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                        <span>{edge.photo.date}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
