@@ -490,6 +490,159 @@ LIMIT 1`;
 }
 
 /**
+ * Validate that a QID corresponds to the expected person name
+ * Returns true if the QID's label matches the name (case-insensitive)
+ */
+export async function validateQID(qid: string, expectedName: string): Promise<boolean> {
+  try {
+    const sparqlQuery = `
+SELECT ?itemLabel WHERE {
+  wd:${qid} rdfs:label ?itemLabel .
+  FILTER(LANG(?itemLabel) = "en")
+}
+LIMIT 1`;
+
+    const sparqlUrl = `https://query.wikidata.org/sparql?query=${encodeURIComponent(
+      sparqlQuery
+    )}&format=json`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(sparqlUrl, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/sparql-results+json',
+        'User-Agent': 'CelebLink/1.0',
+      },
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) return false;
+
+    const data = await response.json();
+    const actualName = data.results?.bindings?.[0]?.itemLabel?.value;
+
+    if (!actualName) return false;
+
+    // Normalize names for comparison (lowercase, trim, remove extra spaces)
+    const normalizedActual = actualName.toLowerCase().trim().replace(/\s+/g, ' ');
+    const normalizedExpected = expectedName.toLowerCase().trim().replace(/\s+/g, ' ');
+
+    // Check if names match (exact or if one contains the other)
+    const matches = normalizedActual === normalizedExpected ||
+                   normalizedActual.includes(normalizedExpected) ||
+                   normalizedExpected.includes(normalizedActual);
+
+    if (!matches) {
+      console.log(`    ✗ QID mismatch: ${qid} is "${actualName}" but expected "${expectedName}"`);
+    }
+
+    return matches;
+  } catch (error) {
+    console.error(`  Error validating QID ${qid}:`, error);
+    return false;
+  }
+}
+
+/**
+ * Search for the correct QID for a person by name
+ * Returns the most likely QID or empty string if not found
+ */
+export async function findCorrectQID(name: string): Promise<string> {
+  try {
+    console.log(`    → Searching for correct QID for "${name}"`);
+
+    // Use the same search API as autocomplete
+    const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(
+      name
+    )}&language=en&format=json&type=item&limit=5`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(searchUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'CelebLink/1.0',
+      },
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) return '';
+
+    const data = await response.json();
+    const results = data.search || [];
+
+    if (results.length === 0) {
+      console.log(`    ✗ No results found for "${name}"`);
+      return '';
+    }
+
+    // Get the first result (usually most relevant)
+    const topResult = results[0];
+
+    // Verify it's a person by checking if description contains person-related keywords
+    const desc = (topResult.description || '').toLowerCase();
+    const personKeywords = [
+      'actor', 'actress', 'singer', 'musician', 'politician', 'writer', 'director',
+      'producer', 'artist', 'athlete', 'player', 'scientist', 'author'
+    ];
+
+    const isProbablyPerson = personKeywords.some(keyword => desc.includes(keyword));
+
+    if (!isProbablyPerson && results.length > 1) {
+      // Try second result if first doesn't seem like a person
+      const secondResult = results[1];
+      const desc2 = (secondResult.description || '').toLowerCase();
+      const isProbablyPerson2 = personKeywords.some(keyword => desc2.includes(keyword));
+
+      if (isProbablyPerson2) {
+        console.log(`    ✓ Found correct QID: ${secondResult.id} (${secondResult.label})`);
+        return secondResult.id;
+      }
+    }
+
+    console.log(`    ✓ Found correct QID: ${topResult.id} (${topResult.label})`);
+    return topResult.id;
+  } catch (error) {
+    console.error(`  Error searching for QID for ${name}:`, error);
+    return '';
+  }
+}
+
+/**
+ * Validate that a meeting photo URL likely contains both people
+ */
+function validateMeetingPhoto(url: string, name1: string, name2: string): boolean {
+  if (!url) return false;
+
+  const urlLower = url.toLowerCase();
+  const name1Lower = name1.toLowerCase();
+  const name2Lower = name2.toLowerCase();
+
+  // Extract key parts of each name (exclude common words)
+  const getName1Parts = name1Lower
+    .split(' ')
+    .filter(part => part.length > 2 && !['the', 'and', 'von', 'van', 'de'].includes(part));
+  const getName2Parts = name2Lower
+    .split(' ')
+    .filter(part => part.length > 2 && !['the', 'and', 'von', 'van', 'de'].includes(part));
+
+  // Check if URL contains at least one significant part from each name
+  const hasName1 = getName1Parts.some(part => urlLower.includes(part));
+  const hasName2 = getName2Parts.some(part => urlLower.includes(part));
+
+  if (hasName1 && hasName2) {
+    console.log(`    ✓ Meeting photo URL contains both names`);
+    return true;
+  }
+
+  console.log(`    ✗ Meeting photo URL doesn't contain both names (${!hasName1 ? name1 : name2} missing)`);
+  return false;
+}
+
+/**
  * Search for images of two people together on Wikimedia Commons
  */
 export async function searchPhotosOfPeopleTogether(name1: string, name2: string): Promise<string> {
@@ -498,7 +651,7 @@ export async function searchPhotosOfPeopleTogether(name1: string, name2: string)
     const searchQuery = `"${name1}" "${name2}"`;
     const searchUrl = `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srsearch=${encodeURIComponent(
       searchQuery
-    )}&srnamespace=6&srlimit=3&origin=*`;
+    )}&srnamespace=6&srlimit=5&origin=*`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -515,13 +668,21 @@ export async function searchPhotosOfPeopleTogether(name1: string, name2: string)
 
     if (results.length === 0) return '';
 
-    // Get the first result's title
-    const title = results[0].title.replace('File:', '');
-    const imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(
-      title
-    )}?width=400`;
+    // Try each result until we find one that validates
+    for (const result of results) {
+      const title = result.title.replace('File:', '');
+      const imageUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(
+        title
+      )}?width=400`;
 
-    return imageUrl;
+      // Validate this photo contains both names
+      if (validateMeetingPhoto(imageUrl, name1, name2)) {
+        return imageUrl;
+      }
+    }
+
+    console.log(`    ✗ No valid meeting photo found in ${results.length} results`);
+    return '';
   } catch (error) {
     console.error(`Error searching for photos of ${name1} and ${name2}:`, error);
     return '';

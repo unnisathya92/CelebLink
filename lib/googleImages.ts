@@ -50,6 +50,31 @@ export async function searchGoogleImages(query: string, limit: number = 1): Prom
 }
 
 /**
+ * Validate that a meeting photo URL likely contains both people
+ */
+function validateMeetingPhotoUrl(url: string, name1: string, name2: string): boolean {
+  if (!url) return false;
+
+  const urlLower = url.toLowerCase();
+  const name1Lower = name1.toLowerCase();
+  const name2Lower = name2.toLowerCase();
+
+  // Extract key parts of each name (exclude common words)
+  const getName1Parts = name1Lower
+    .split(' ')
+    .filter(part => part.length > 2 && !['the', 'and', 'von', 'van', 'de'].includes(part));
+  const getName2Parts = name2Lower
+    .split(' ')
+    .filter(part => part.length > 2 && !['the', 'and', 'von', 'van', 'de'].includes(part));
+
+  // Check if URL contains at least one significant part from each name
+  const hasName1 = getName1Parts.some(part => urlLower.includes(part));
+  const hasName2 = getName2Parts.some(part => urlLower.includes(part));
+
+  return hasName1 && hasName2;
+}
+
+/**
  * Search for photos of two people together using Google Images
  */
 export async function searchMeetingPhotoGoogle(name1: string, name2: string): Promise<string> {
@@ -63,11 +88,15 @@ export async function searchMeetingPhotoGoogle(name1: string, name2: string): Pr
     console.log(`  Trying Google search: ${query}`);
     const results = await searchGoogleImages(query, 3);
 
-    if (results.length > 0) {
-      // Return the first result
-      return results[0];
+    // Validate each result
+    for (const imageUrl of results) {
+      if (validateMeetingPhotoUrl(imageUrl, name1, name2)) {
+        console.log(`    ✓ Found valid meeting photo in Google results`);
+        return imageUrl;
+      }
     }
   }
 
+  console.log(`  ✗ No valid meeting photo found in Google results`);
   return '';
 }

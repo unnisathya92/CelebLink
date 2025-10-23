@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { extractJson } from '@/lib/json';
 import type { Suggestion } from '@/lib/wikidata';
-import { getPersonImageFromWikipedia, searchPhotosOfPeopleTogether } from '@/lib/wikidata';
+import { getPersonImageFromWikipedia, searchPhotosOfPeopleTogether, validateQID, findCorrectQID } from '@/lib/wikidata';
 import { searchMeetingPhotoGoogle } from '@/lib/googleImages';
 
 // Mock data for when no OpenAI key is available
@@ -296,6 +296,41 @@ For intermediate people, ensure you use correct Wikidata QIDs.`,
         console.log(result.nodes.map((n: any) => n.name).join(' → '));
         console.log('=====================================\n');
       }
+
+      // Validate QIDs and fix any mismatches
+      console.log('\n========== VALIDATING QIDs ==========');
+      for (const node of result.nodes) {
+        console.log(`  Validating ${node.name} (${node.qid})`);
+        const isValid = await validateQID(node.qid, node.name);
+
+        if (!isValid) {
+          console.log(`    ✗ Invalid QID! Searching for correct one...`);
+          const correctQID = await findCorrectQID(node.name);
+
+          if (correctQID) {
+            console.log(`    ✓ Corrected: ${node.qid} → ${correctQID}`);
+
+            // Update the QID in the node
+            const oldQID = node.qid;
+            node.qid = correctQID;
+
+            // Update all edges that reference this node
+            for (const edge of result.edges) {
+              if (edge.from === oldQID) {
+                edge.from = correctQID;
+              }
+              if (edge.to === oldQID) {
+                edge.to = correctQID;
+              }
+            }
+          } else {
+            console.log(`    ✗ Could not find correct QID for ${node.name}`);
+          }
+        } else {
+          console.log(`    ✓ Valid QID`);
+        }
+      }
+      console.log('=====================================\n');
 
       // Fetch real photos for nodes and edges
       console.log('\n========== FETCHING REAL PHOTOS ==========');
