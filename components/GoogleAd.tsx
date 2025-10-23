@@ -41,19 +41,13 @@ export default function GoogleAd({
     return () => clearTimeout(timer);
   }, []);
 
-  // Don't show ads if client ID is not configured
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID;
-  if (!clientId) {
-    return null;
-  }
-
   return (
     <div className={`google-ad-container ${className}`} style={{ minWidth: '300px', minHeight: '50px' }}>
       <ins
         ref={adRef}
         className="adsbygoogle"
         style={{ display: 'block', minWidth: '300px', minHeight: '50px' }}
-        data-ad-client={clientId}
+        data-ad-client="ca-pub-2217932579992453"
         data-ad-slot={slot}
         data-ad-format={format}
         data-full-width-responsive={responsive ? 'true' : 'false'}
