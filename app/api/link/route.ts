@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { extractJson } from '@/lib/json';
 import type { Suggestion } from '@/lib/wikidata';
-import { getPersonImageFromWikipedia, searchPhotosOfPeopleTogether, validateQID, findCorrectQID } from '@/lib/wikidata';
+import { getPersonImageFromWikipedia, searchPhotosOfPeopleTogether, validateQID, findCorrectQID, getPersonDates, validateMeetingDate } from '@/lib/wikidata';
 import { searchMeetingPhotoGoogle } from '@/lib/googleImages';
 
 // Mock data for when no OpenAI key is available
@@ -330,6 +330,62 @@ For intermediate people, ensure you use correct Wikidata QIDs.`,
           console.log(`    ✓ Valid QID`);
         }
       }
+      console.log('=====================================\n');
+
+      // Validate meeting dates to catch impossible/anachronistic connections
+      console.log('\n========== VALIDATING MEETING DATES ==========');
+
+      // Fetch birth/death dates for all people
+      const personDates = new Map<string, { birth?: string; death?: string }>();
+      for (const node of result.nodes) {
+        console.log(`  Fetching dates for ${node.name} (${node.qid})`);
+        const dates = await getPersonDates(node.qid);
+        personDates.set(node.qid, dates);
+        if (dates.birth || dates.death) {
+          console.log(`    Birth: ${dates.birth || 'unknown'}, Death: ${dates.death || 'alive'}`);
+        }
+      }
+
+      // Validate each edge's meeting date
+      const validEdges: any[] = [];
+      for (const edge of result.edges) {
+        const fromNode = result.nodes.find((n: any) => n.qid === edge.from);
+        const toNode = result.nodes.find((n: any) => n.qid === edge.to);
+
+        if (!fromNode || !toNode) {
+          validEdges.push(edge);
+          continue;
+        }
+
+        const meetingDate = edge.photo.date || '';
+        const fromDates = personDates.get(edge.from) || {};
+        const toDates = personDates.get(edge.to) || {};
+
+        console.log(`  Validating: ${fromNode.name} + ${toNode.name} (${meetingDate})`);
+
+        const isValid = validateMeetingDate(
+          meetingDate,
+          fromDates,
+          toDates,
+          fromNode.name,
+          toNode.name
+        );
+
+        if (isValid) {
+          console.log(`    ✓ Valid meeting date`);
+          validEdges.push(edge);
+        } else {
+          console.log(`    ✗ Removing impossible connection`);
+        }
+      }
+
+      // Update edges with only valid ones
+      result.edges = validEdges;
+
+      if (validEdges.length === 0) {
+        console.log('  ⚠ No valid connections found after date validation');
+      }
+
       console.log('=====================================\n');
 
       // Fetch real photos for nodes and edges

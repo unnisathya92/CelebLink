@@ -490,6 +490,114 @@ LIMIT 1`;
 }
 
 /**
+ * Get birth and death dates for a person from Wikidata
+ */
+export async function getPersonDates(qid: string): Promise<{ birth?: string; death?: string }> {
+  try {
+    const sparqlQuery = `
+SELECT ?birthDate ?deathDate WHERE {
+  wd:${qid} wdt:P569 ?birthDate .
+  OPTIONAL { wd:${qid} wdt:P570 ?deathDate }
+}
+LIMIT 1`;
+
+    const sparqlUrl = `https://query.wikidata.org/sparql?query=${encodeURIComponent(
+      sparqlQuery
+    )}&format=json`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(sparqlUrl, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/sparql-results+json',
+        'User-Agent': 'CelebLink/1.0',
+      },
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) return {};
+
+    const data = await response.json();
+    const binding = data.results?.bindings?.[0];
+
+    if (!binding) return {};
+
+    // Extract just the date part (YYYY-MM-DD or YYYY)
+    const birthDate = binding.birthDate?.value?.split('T')[0];
+    const deathDate = binding.deathDate?.value?.split('T')[0];
+
+    return {
+      birth: birthDate,
+      death: deathDate,
+    };
+  } catch (error) {
+    console.error(`  Error fetching dates for ${qid}:`, error);
+    return {};
+  }
+}
+
+/**
+ * Validate that a meeting date is possible given the lifespans of both people
+ */
+export function validateMeetingDate(
+  meetingDate: string,
+  person1Dates: { birth?: string; death?: string },
+  person2Dates: { birth?: string; death?: string },
+  person1Name: string,
+  person2Name: string
+): boolean {
+  if (!meetingDate || meetingDate === '') {
+    // No date provided, can't validate
+    return true;
+  }
+
+  // Extract year from meeting date (handle YYYY-MM-DD or YYYY)
+  const meetingYear = parseInt(meetingDate.split('-')[0]);
+
+  if (isNaN(meetingYear)) {
+    return true; // Can't parse, skip validation
+  }
+
+  // Check if person1 was alive at the meeting date
+  if (person1Dates.birth) {
+    const birthYear1 = parseInt(person1Dates.birth.split('-')[0]);
+    if (meetingYear < birthYear1) {
+      console.log(`    ✗ Impossible date: ${person1Name} wasn't born yet (born ${person1Dates.birth})`);
+      return false;
+    }
+  }
+
+  if (person1Dates.death) {
+    const deathYear1 = parseInt(person1Dates.death.split('-')[0]);
+    if (meetingYear > deathYear1) {
+      console.log(`    ✗ Impossible date: ${person1Name} was already deceased (died ${person1Dates.death})`);
+      return false;
+    }
+  }
+
+  // Check if person2 was alive at the meeting date
+  if (person2Dates.birth) {
+    const birthYear2 = parseInt(person2Dates.birth.split('-')[0]);
+    if (meetingYear < birthYear2) {
+      console.log(`    ✗ Impossible date: ${person2Name} wasn't born yet (born ${person2Dates.birth})`);
+      return false;
+    }
+  }
+
+  if (person2Dates.death) {
+    const deathYear2 = parseInt(person2Dates.death.split('-')[0]);
+    if (meetingYear > deathYear2) {
+      console.log(`    ✗ Impossible date: ${person2Name} was already deceased (died ${person2Dates.death})`);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Validate that a QID corresponds to the expected person name
  * Returns true if the QID's label matches the name (case-insensitive)
  */
