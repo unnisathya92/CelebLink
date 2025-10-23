@@ -261,7 +261,7 @@ For intermediate people, ensure you use correct Wikidata QIDs.`,
       // Fix: Reorder nodes based on edge connections
       if (result.edges.length > 0) {
         const nodeMap = new Map(result.nodes.map((n: any) => [n.qid, n]));
-        const orderedNodes = [];
+        const orderedNodes: any[] = [];
 
         // Start with the first edge's "from" node
         const firstNode = nodeMap.get(result.edges[0].from);
@@ -270,14 +270,14 @@ For intermediate people, ensure you use correct Wikidata QIDs.`,
         // Follow the chain through edges
         for (const edge of result.edges) {
           const toNode = nodeMap.get(edge.to);
-          if (toNode && !orderedNodes.find((n: any) => n.qid === toNode.qid)) {
+          if (toNode && !orderedNodes.find((n: any) => n.qid === (toNode as any).qid)) {
             orderedNodes.push(toNode);
           }
         }
 
         // Add any remaining nodes that weren't in the chain
         for (const node of result.nodes) {
-          if (!orderedNodes.find((n: any) => n.qid === node.qid)) {
+          if (!orderedNodes.find((n: any) => n.qid === (node as any).qid)) {
             orderedNodes.push(node);
           }
         }
