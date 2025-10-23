@@ -332,14 +332,14 @@ function isLikelyPersonImage(url: string, name: string, isMeetingPhoto: boolean 
     return true;
   }
 
-  // For Wikimedia/Wikipedia URLs, be very lenient (trusted source)
-  // Only reject if it's obviously not a person photo
+  // For Wikimedia/Wikipedia URLs, be lenient but check for obvious issues
   if (urlLower.includes('wikimedia.org') || urlLower.includes('wikipedia.org')) {
-    // Only reject truly invalid types
+    // Reject obviously invalid types
     const obviouslyInvalidPatterns = [
       'logo.', 'icon.', '.svg',
       'flag_of_', 'coat_of_arms',
       'map_of_', 'diagram_',
+      'elephant', 'lion', 'tiger', 'animal', // No animal photos
     ];
 
     const hasObviouslyInvalid = obviouslyInvalidPatterns.some(pattern =>
@@ -347,7 +347,33 @@ function isLikelyPersonImage(url: string, name: string, isMeetingPhoto: boolean 
     );
 
     if (hasObviouslyInvalid) {
-      console.log(`    ✗ Rejected: Wikimedia URL contains obviously invalid pattern`);
+      console.log(`    ✗ Rejected: Wikimedia URL contains invalid pattern`);
+      return false;
+    }
+
+    // Check for wrong person names in URL
+    const wrongPersonPatterns = [
+      'michelle_obama', 'michelle%20obama', 'michelleobama',
+      'barack_obama', 'barack%20obama', 'barackobama',
+      'tom_hanks', 'tom%20hanks', 'tomhanks',
+      'donald_trump', 'donald%20trump', 'donaldtrump',
+      'amitabh_bachchan', 'amitabh%20bachchan', 'amitabhbachchan',
+      'shah_rukh', 'shah%20rukh', 'shahrukh',
+    ];
+
+    const hasWrongPerson = wrongPersonPatterns.some(pattern => {
+      if (urlLower.includes(pattern)) {
+        // Only reject if this pattern doesn't match the actual person's name
+        const matches = nameLower.replace(/\s+/g, '').includes(pattern.replace(/[_\s%20]/g, ''));
+        if (!matches) {
+          console.log(`    ✗ Rejected: URL contains different person's name (${pattern})`);
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (hasWrongPerson) {
       return false;
     }
 

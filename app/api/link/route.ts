@@ -155,16 +155,21 @@ You are an expert in finding connections between notable people across any field
 Your goal: return STRICT JSON showing the SHORTEST PLAUSIBLE connection chain linking two named individuals.
 
 CRITICAL PRIORITY - PHOTO AVAILABILITY:
-- ONLY suggest connections where REAL public photographs exist of the two people together
+- ONLY suggest connections where BOTH people were PHOTOGRAPHED TOGETHER in the SAME FRAME
+- DO NOT use connections where someone "visited" something or "attended" an event alone
+- BOTH people must be PHYSICALLY PRESENT together in a documented photograph
 - Prioritize widely-documented public events with extensive photo coverage:
   * Major award ceremonies (Oscars, Grammys, Nobel Prize, etc.)
   * G20/G7/UN summits with official photography
-  * High-profile film premieres and festivals
+  * High-profile film premieres and festivals (where both posed together)
   * Major sports events (Olympics, World Cup)
   * Well-documented charity galas and fundraisers
   * Press conferences with multiple people
-  * TV shows, interviews, and talk shows with video/photo evidence
-- AVOID obscure meetings or private gatherings unlikely to have photos
+  * TV shows, interviews, and talk shows (where both appeared together)
+- AVOID:
+  * "Person X visited museum Y" - NOT a connection
+  * "Both attended event Z" - Only valid if photographed TOGETHER
+  * Obscure meetings or private gatherings unlikely to have photos
 - If a direct connection lacks photos, find an intermediate person with PHOTO-DOCUMENTED connections to both
 
 CRITICAL INSTRUCTIONS FOR PHOTO URLs:
@@ -206,8 +211,10 @@ Return STRICT JSON in this schema:
   ]
 }
 
-EXAMPLE of good caption: "Photographed together at the 2018 Met Gala in New York City"
-EXAMPLE of bad caption: "They might have met" or "They worked in the same industry"
+EXAMPLE of GOOD caption: "Photographed together at the 2018 Met Gala in New York City"
+EXAMPLE of GOOD caption: "Appeared together on The Tonight Show on 2015-03-15"
+EXAMPLE of BAD caption: "Spielberg visited Picasso exhibition" - NOT a connection
+EXAMPLE of BAD caption: "They might have met" or "They worked in the same industry"
 
 If absolutely no PHOTO-DOCUMENTED connection path exists, return only the two nodes with an empty "edges" array.`,
           },
