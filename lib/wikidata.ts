@@ -18,21 +18,62 @@ export async function searchWikidata(query: string): Promise<Suggestion[]> {
   }
 
   try {
-    // Search for entities
+    // Search for entities with retry logic
     const searchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(
       query
     )}&language=en&format=json&type=item&limit=10`;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    let searchRes;
+    let retries = 3;
 
-    const searchRes = await fetch(searchUrl, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+    while (retries > 0) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000); // Increased to 10s
 
-    if (!searchRes.ok) {
-      throw new Error('Search failed');
+        searchRes = await fetch(searchUrl, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'CelebLink/1.0 (https://celebslinks.com; contact@celebslinks.com)',
+          },
+        });
+        clearTimeout(timeout);
+
+        if (searchRes.ok) {
+          break; // Success, exit retry loop
+        }
+
+        // Log the error status
+        console.error(`Wikidata search failed with status ${searchRes.status}: ${searchRes.statusText}`);
+
+        // If rate limited (429) or server error (5xx), retry
+        if (searchRes.status === 429 || searchRes.status >= 500) {
+          retries--;
+          if (retries > 0) {
+            const delay = (4 - retries) * 1000; // 1s, 2s, 3s backoff
+            console.log(`  Retrying in ${delay}ms... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+
+        throw new Error(`Wikidata API error: ${searchRes.status} ${searchRes.statusText}`);
+      } catch (fetchError: any) {
+        if (fetchError.name === 'AbortError') {
+          console.error('Wikidata search timed out');
+          retries--;
+          if (retries > 0) {
+            console.log(`  Retrying... (${retries} retries left)`);
+            continue;
+          }
+        }
+        throw fetchError;
+      }
+    }
+
+    if (!searchRes || !searchRes.ok) {
+      console.error('Wikidata search failed after retries, returning empty results');
+      return [];
     }
 
     const searchData = await searchRes.json();
