@@ -7,6 +7,7 @@ import PathViewer from '@/components/PathViewer';
 import LoadingWordRing from '@/components/LoadingWordRing';
 import GoogleAd from '@/components/GoogleAd';
 import type { Suggestion } from '@/lib/wikidata';
+import { getRandomPair } from '@/lib/randomCelebrities';
 
 const LOADING_MESSAGES = [
   "Discovering connections across the globe...",
@@ -81,6 +82,65 @@ export default function Home() {
     }
   }, [loading]);
 
+  const handleRandomConnection = () => {
+    const [celeb1, celeb2] = getRandomPair();
+    setFromCeleb({
+      qid: celeb1.qid,
+      name: celeb1.name,
+      description: celeb1.description,
+    });
+    setToCeleb({
+      qid: celeb2.qid,
+      name: celeb2.name,
+      description: celeb2.description,
+    });
+    // Auto-trigger search after setting celebs
+    setTimeout(() => {
+      handleLinkWithCelebs({
+        qid: celeb1.qid,
+        name: celeb1.name,
+        description: celeb1.description,
+      }, {
+        qid: celeb2.qid,
+        name: celeb2.name,
+        description: celeb2.description,
+      });
+    }, 100);
+  };
+
+  const handleLinkWithCelebs = async (from: Suggestion, to: Suggestion) => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setShowForm(false); // Hide form when searching
+    setShowResults(true);
+
+    try {
+      const res = await fetch('/api/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to generate link');
+      }
+
+      const data = await res.json();
+      setResult(data);
+
+      // Show form again if no connections found
+      if (!data.edges || data.edges.length === 0) {
+        setShowForm(true);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      setShowForm(true); // Show form on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLink = async () => {
     if (!fromCeleb || !toCeleb) return;
 
@@ -147,6 +207,18 @@ export default function Home() {
           <p className="text-muted text-xl sm:text-2xl font-light max-w-2xl mx-auto leading-relaxed">
             A fun way to connect celebrities through their shared moments and meetings
           </p>
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={handleRandomConnection}
+              disabled={loading}
+              className="group px-6 py-3 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 flex items-center gap-2 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Try Random Connection
+            </button>
+          </div>
         </div>
 
         {/* Search inputs */}
