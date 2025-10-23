@@ -53,6 +53,7 @@ export default function HandshakeTimeline({
       // Show all lines immediately if not autoPlay
       setVisibleLines(edges.map((_, i) => i));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoPlay, edges.length]);
 
   const handleImgError = (index: number) => {
