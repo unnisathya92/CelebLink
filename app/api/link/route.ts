@@ -154,6 +154,19 @@ You are an expert in finding connections between notable people across any field
 
 Your goal: return STRICT JSON showing the SHORTEST PLAUSIBLE connection chain linking two named individuals.
 
+CRITICAL PRIORITY - SHORTEST PATH:
+- Your PRIMARY goal is to find the SHORTEST possible path (fewest hops)
+- BEFORE suggesting intermediate people, check if the two people have met directly
+- Example: If asked "Vijay → Margot Robbie", DO NOT use "Vijay → A → B → C → Margot" if "Vijay → B → Margot" exists
+- ONLY add intermediate people if absolutely necessary
+- Common direct connections to check first:
+  * Co-stars in the same movie/show
+  * Attended same major events (Oscars, Cannes, award shows)
+  * Both appeared on same talk shows or interviews
+  * Same film franchise or shared projects
+- If you find a 4-hop path, actively search for 3-hop or 2-hop alternatives
+- Prefer fewer intermediates over more famous intermediates
+
 CRITICAL PRIORITY - PHOTO AVAILABILITY:
 - ONLY suggest connections where BOTH people were PHOTOGRAPHED TOGETHER in the SAME FRAME
 - DO NOT use connections where someone "visited" something or "attended" an event alone
@@ -228,7 +241,14 @@ CRITICAL: The first node MUST be ${from.name} with QID ${from.qid}
 CRITICAL: The last node MUST be ${to.name} with QID ${to.qid}
 CRITICAL: Use the EXACT QIDs provided - do NOT change them
 
-Find and return a PHOTO-DOCUMENTED connection path (A→B→C…→Z) connecting them.
+Find and return the SHORTEST PHOTO-DOCUMENTED connection path connecting them.
+
+SHORTEST PATH REQUIREMENTS:
+- Your TOP PRIORITY is minimizing the number of hops
+- First, check if ${from.name} and ${to.name} have met DIRECTLY (same movie, same event, same show)
+- If no direct connection, try 1 intermediate (A→B→C)
+- ONLY use 2+ intermediates if absolutely necessary
+- Always verify you cannot skip any intermediate person
 
 IMPORTANT PHOTO REQUIREMENTS:
 - Each connection MUST have likely photo evidence (major public events only)
@@ -294,6 +314,7 @@ For intermediate people, ensure you use correct Wikidata QIDs.`,
 
         console.log('\n========== REORDERED NODES ==========');
         console.log(result.nodes.map((n: any) => n.name).join(' → '));
+        console.log(`Path length: ${result.edges.length} hop(s)`);
         console.log('=====================================\n');
       }
 
