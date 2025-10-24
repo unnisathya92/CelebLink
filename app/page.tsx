@@ -378,7 +378,7 @@ export default function Home() {
         {result && result.edges.length > 0 && (
           <div className="flex justify-center pt-8">
             <GoogleAd
-              slot="1234567890"
+              slot="2946147018"
               format="horizontal"
               className="max-w-3xl"
             />
@@ -397,7 +397,7 @@ export default function Home() {
           {/* Subtle footer ad */}
           <div className="flex justify-center opacity-70 hover:opacity-100 transition-opacity">
             <GoogleAd
-              slot="0987654321"
+              slot="5210800975"
               format="auto"
               className="max-w-2xl"
             />
