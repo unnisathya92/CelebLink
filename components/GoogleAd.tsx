@@ -18,7 +18,15 @@ export default function GoogleAd({
   const adRef = useRef<HTMLModElement>(null);
   const isInitialized = useRef(false);
 
+  // Don't load ads in development
+  const isProduction = process.env.NODE_ENV === 'production';
+
   useEffect(() => {
+    // Skip ad loading in development
+    if (!isProduction) {
+      return;
+    }
+
     // Prevent double initialization
     if (isInitialized.current) return;
 
@@ -40,6 +48,17 @@ export default function GoogleAd({
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Show placeholder in development
+  if (!isProduction) {
+    return (
+      <div className={`google-ad-container ${className}`} style={{ minWidth: '300px', minHeight: '50px' }}>
+        <div className="text-center text-gray-400 text-xs py-4 border border-dashed border-gray-600 rounded">
+          [Ad Placeholder - Ads only load in production]
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`google-ad-container ${className}`} style={{ minWidth: '300px', minHeight: '50px' }}>
