@@ -35,19 +35,39 @@ export default function GoogleAd({
       try {
         // Check if the ad container has proper width
         if (adRef.current && adRef.current.offsetWidth > 0) {
+          console.log(`AdSense: Initializing ad slot ${slot}`);
           // @ts-ignore
           (window.adsbygoogle = window.adsbygoogle || []).push({});
           isInitialized.current = true;
+
+          // Check for ad errors after a delay
+          setTimeout(() => {
+            if (adRef.current) {
+              const hasAd = adRef.current.querySelector('ins[data-ad-status]');
+              const status = hasAd?.getAttribute('data-ad-status');
+              if (status === 'unfilled') {
+                console.warn(`AdSense: Slot ${slot} - No ads available (unfilled)`);
+              } else if (!hasAd) {
+                console.warn(`AdSense: Slot ${slot} - Ad may have failed to load. Check:`);
+                console.warn('1. Is celebslinks.com added to your AdSense account?');
+                console.warn(`2. Does ad slot ${slot} exist in AdSense dashboard?`);
+                console.warn('3. Is your site approved and showing "Ready" status?');
+                console.warn('4. Check for OPT_OUT cookies in DevTools → Application → Cookies');
+              } else {
+                console.log(`AdSense: Slot ${slot} loaded successfully (status: ${status})`);
+              }
+            }
+          }, 2000);
         } else {
           console.log('AdSense: Container not ready, skipping ad load');
         }
       } catch (err) {
-        console.error('AdSense error:', err);
+        console.error(`AdSense error for slot ${slot}:`, err);
       }
     }, 100); // Small delay to let DOM settle
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [slot]);
 
   // Show placeholder in development
   if (!isProduction) {
