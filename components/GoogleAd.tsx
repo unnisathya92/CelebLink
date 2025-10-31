@@ -46,13 +46,12 @@ export default function GoogleAd({
               const hasAd = adRef.current.querySelector('ins[data-ad-status]');
               const status = hasAd?.getAttribute('data-ad-status');
               if (status === 'unfilled') {
-                console.warn(`AdSense: Slot ${slot} - No ads available (unfilled)`);
+                console.info(`AdSense: Slot ${slot} - No ads available right now (unfilled). This is normal.`);
               } else if (!hasAd) {
-                console.warn(`AdSense: Slot ${slot} - Ad may have failed to load. Check:`);
-                console.warn('1. Is celebslinks.com added to your AdSense account?');
-                console.warn(`2. Does ad slot ${slot} exist in AdSense dashboard?`);
-                console.warn('3. Is your site approved and showing "Ready" status?');
-                console.warn('4. Check for OPT_OUT cookies in DevTools → Application → Cookies');
+                console.warn(`AdSense: Slot ${slot} - Ad failed to load.`);
+                console.warn('Most likely reason: Site is still under review ("Getting ready" status)');
+                console.warn('Check: https://www.google.com/adsense → Sites');
+                console.warn('Once status changes to "Ready", ads will start showing.');
               } else {
                 console.log(`AdSense: Slot ${slot} loaded successfully (status: ${status})`);
               }
